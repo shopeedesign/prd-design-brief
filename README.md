@@ -162,6 +162,92 @@ Seller · Ops · OMS · 物流系统
 
 如果凭据缺失，skill 应该停下来提示补充，而不是绕过权限继续抓取。
 
+## 如何配置公司内部 Confluence 授权
+
+这个 skill 复用了 `confluence-search` 的授权方式，所以 Confluence 访问凭据需要按同一套格式配置。
+
+### 适用于公司内部自托管 Confluence 的推荐方式
+
+大多数公司内网 Confluence 都是自托管环境，通常使用：
+
+- `CONFLUENCE_AUTH_TYPE="Bearer"`
+- `CONFLUENCE_TOKEN="你的 Personal Access Token"`
+
+如果你们公司内部的 Confluence 也是这种模式，可以按下面步骤配置。
+
+### 第一步：创建本地凭据文件
+
+在终端里创建 `~/.confluence-credentials`：
+
+```bash
+touch ~/.confluence-credentials
+chmod 600 ~/.confluence-credentials
+```
+
+### 第二步：填入你的 Confluence 配置
+
+把下面内容写进 `~/.confluence-credentials`，再把示例值替换成你自己的：
+
+```bash
+export CONFLUENCE_BASE_URL="https://confluence.yourcompany.com"
+export CONFLUENCE_AUTH_TYPE="Bearer"
+export CONFLUENCE_TOKEN="YOUR_PERSONAL_ACCESS_TOKEN_HERE"
+```
+
+字段说明：
+
+- `CONFLUENCE_BASE_URL`：你们公司 Confluence 的域名，不要带结尾斜杠。
+- `CONFLUENCE_AUTH_TYPE`：公司内部自托管环境通常填 `Bearer`。
+- `CONFLUENCE_TOKEN`：你在 Confluence 里生成的个人访问令牌。
+
+### 第三步：获取公司内部 Confluence 的授权码
+
+如果你们的 Confluence 支持 Personal Access Token，通常可以按这个路径获取：
+
+`右上角头像 -> Profile -> Personal Access Tokens -> Create token`
+
+拿到 token 后，直接把它填进：
+
+```bash
+export CONFLUENCE_TOKEN="这里填你的 token"
+```
+
+### 第四步：验证是否生效
+
+你可以在终端里执行下面命令，确认变量已经能读到：
+
+```bash
+source ~/.confluence-credentials && echo $CONFLUENCE_BASE_URL
+```
+
+如果能打印出你的 Confluence 域名，说明文件格式基本正确。
+
+### 如果你们用的是 Atlassian Cloud
+
+`confluence-search` 的原始模板里也保留了 Cloud 的写法。如果你的环境不是公司内网自托管，而是 Atlassian Cloud，可以这样配置：
+
+1. 到 [Atlassian API tokens](https://id.atlassian.com/manage-profile/security/api-tokens) 创建 API token。
+2. 用下面命令把 `邮箱:token` 做 Base64 编码：
+
+```bash
+echo -n "you@email.com:YOUR_TOKEN" | base64
+```
+
+3. 然后把 `~/.confluence-credentials` 改成：
+
+```bash
+export CONFLUENCE_BASE_URL="https://your-domain.atlassian.net/wiki"
+export CONFLUENCE_AUTH_TYPE="Basic"
+export CONFLUENCE_TOKEN="这里填 Base64 编码结果"
+```
+
+### 常见问题
+
+- `401 Unauthorized`：通常是 token 过期、填错，或者 `AUTH_TYPE` 配错。
+- `base URL` 不生效：检查是否误加了结尾 `/`。
+- 本地可以 `source` 但 skill 读不到：确认文件路径确实是 `~/.confluence-credentials`。
+- 不要把 token 提交到 GitHub 或其他仓库里。
+
 ## 仓库内容
 
 - [SKILL.md](./SKILL.md)：skill 的完整规则、触发条件和输出格式。
