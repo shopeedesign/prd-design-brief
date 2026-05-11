@@ -1,7 +1,7 @@
 ---
 name: prd-design-brief
 description: >-
-  面向设计师输出 PRD 的高密度需求理解简报。当用户提供 PRD（Confluence 链接、pageId 或正文），
+  面向设计师输出 PRD 的高密度需求理解简报。当用户提供 PRD（Confluence 链接、Google 文档链接、本地文件或正文），
   并希望从设计师视角快速理解需求、输出「PRD 简报」「设计简报」「需求摘要」「需求理解」时触发。
   输出应覆盖需求背景、业务流程、功能点、前端页面、设计机会点、待明确问题、设计工作量预估与待确认问题。
 ---
@@ -30,7 +30,7 @@ description: >-
 - 命令形式：`/prd-design-brief`
 
 **2. 场景触发**：用户同时满足下面两点，视为隐式触发：
-- 提供了 PRD 来源：Confluence URL（含 `confluence` 域名 / `/pages/` / `pageId=` / `/display/`）、pageId、或粘贴的 PRD 正文。
+- 提供了 PRD 来源：Confluence URL（含 `confluence` 域名 / `/pages/` / `pageId=` / `/display/`）、Google Docs / Drive 链接、本地文件路径（`.md` / `.pdf` / `.docx` / `.doc`）或粘贴的 PRD 正文。
 - 表达了"设计师视角"的诉求：`给设计师看` / `我是设计师` / `从设计角度` / `要开始设计` / `帮我理解这个需求要做什么设计` / `估一下设计工作量` / `列一下要设计的页面` 等。
 
 **3. 延伸触发**：用户明确点名"设计师"并希望得到结构化需求解读，即使没给 PRD 也应该先用此 skill 的格式框架，再向用户索要 PRD 来源。
@@ -45,8 +45,11 @@ description: >-
 
 ### 触发后的基本动作
 
-1. 确认 PRD 来源：链接 / pageId / 粘贴正文。若无来源，先向用户索要。
-2. 读取 PRD（Confluence 来源时复用 `confluence-search` 的授权和抓取能力）。
+1. 确认 PRD 来源：链接 / pageId / 本地文件 / 粘贴正文。若无来源，先向用户索要。
+2. 读取 PRD：
+   - Confluence 来源时复用 `confluence-search` 的授权和抓取能力。
+   - Google Docs / Drive 来源时复用 `google-workspace` 的授权与读取能力。
+   - 本地文件来源时优先读取原文件文本；二进制格式按下方「输入处理」执行提取。
 3. 若用户尚未说明想看哪些部分，先让用户选择输出范围。
 4. 按下方「输出要求」生成对应范围的简报，严格遵循篇幅与格式约束。
 
@@ -58,6 +61,10 @@ description: >-
   - `CONFLUENCE_BASE_URL`
   - `CONFLUENCE_AUTH_TYPE`
   - `CONFLUENCE_TOKEN`
+- 当 PRD 来源为 Google Docs / Drive 时，复用 `google-workspace` skill 的授权与读取能力。环境应满足其前置条件，例如：
+  - `~/.config/google/client_secret.json` 或可用的 service account key
+  - `~/.config/google/oauth_token.json`
+  - `google-api-python-client`、`google-auth`、`google-auth-httplib2`、`google-auth-oauthlib`
 - 如果凭据缺失，停下来明确告知用户需要补充什么，不要尝试绕过。
 
 ### 输入处理
@@ -66,8 +73,17 @@ description: >-
    - 从链接中提取 page ID；`/display/SPACE/Title` 风格先用 CQL 按标题定位。
    - 复用 `confluence-search` skill 的抓取流程（常见安装路径：`~/.cursor/skills/confluence-search/SKILL.md` 或 `~/.codex/skills/confluence-search/SKILL.md`，以本机为准），优先"按 ID 直接抓取"。
    - body 为空（Macro 页面）→ 请用户粘贴关键章节或提供子页面。
-2. **直接粘贴 PRD 正文 / 截图**：直接使用。
-3. **信息明显不足**：开始分析前向用户确认一次缺失的关键信息。
+2. **Google Docs / Drive 链接**：
+   - 提取文档 ID，优先用 `google-workspace` 以只读方式直接读取 Google Doc 内容。
+   - 若是 Drive 中的 PDF / Word / 其他附件，优先通过 `google-workspace` 导出或读取文本，再进入分析。
+   - 如果遇到 `auth failure`、`missing scope` 或 `file sharing denied`，要明确区分是授权问题还是分享权限问题。
+3. **本地文件路径**：
+   - `.md` / `.txt`：直接读取原文。
+   - `.pdf`：提取文本后再分析；若提取结果缺页、乱码或只有图片，明确标注并请用户补充可复制文本或更清晰版本。
+   - `.docx` / `.doc`：优先提取正文文本；`.docx` 优先级高于 `.doc`。若本地工具无法稳定提取 `.doc`，明确请用户转成 `.docx` 或 `.pdf`。
+   - 无论哪种本地文件，都不要求用户先手动改写内容；优先由 skill 完成读取和提取。
+4. **直接粘贴 PRD 正文 / 截图**：直接使用。
+5. **信息明显不足**：开始分析前向用户确认一次缺失的关键信息。
 
 ## 执行前确认
 
@@ -116,6 +132,9 @@ description: >-
 ## 工作流程
 
 1. 获取 PRD 原文。
+   - Confluence：走 `confluence-search`。
+   - Google Docs / Drive：走 `google-workspace`。
+   - 本地文件：先做文本提取，再进入分析。
 2. **执行前先确认输出范围**：若用户尚未指定要看哪些部分，先让用户在 3 个预设输出包中选择；若用户明确要自定义章节，则按自定义范围执行。
 3. 通读一遍，在脑中画出：核心场景、主角、主流程、核心系统模块。
 4. **做归并与抽象**：把 PRD 中零散的条目归成"设计单元"（一组相似页面/一组相似改动算一个单元，不要逐条列）。
@@ -396,7 +415,7 @@ Ops 触发 Cancel → 上下游联动解绑 → 状态回滚
 
 ## 注意事项
 
-- 只读 Confluence，严禁任何写操作（POST / PUT / DELETE）。
+- 只读外部文档与本地文件：Confluence / Google Docs / Google Drive 均不得写回，严禁任何写操作（POST / PUT / DELETE / update file content）。
 - 不要输出完整 PRD 抓取原文，只输出整理后的简报。
 - 不要替产品经理下业务决策：事实缺口进「待确认问题」；逻辑张力与缺环进「待明确问题」，以质疑与影响陈述呈现，不预写方案。
 - 不要把"设计机会点"写成空泛愿景或新增需求清单；必须落在现有业务链路、角色体验与业务结果之间的因果关系上。

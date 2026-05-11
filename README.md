@@ -15,7 +15,7 @@
 - 设计师拿到一份长 PRD，想快速建立全局理解并准备开工。
 - 需要在 kickoff 前拆页面、拆模块、估设计工作量。
 - 想把一份 PRD 压缩成适合设计团队同步的高密度简报。
-- 用户提供 Confluence 链接、`pageId` 或 PRD 正文，并明确希望从设计角度理解需求。
+- 用户提供 Confluence 链接、Google Docs / Drive 链接、本地 PRD 文件路径，或直接粘贴 PRD 正文，并明确希望从设计角度理解需求。
 
 ## 不适用场景
 
@@ -26,12 +26,15 @@
 
 ## 输入与前置条件
 
-- 支持三类输入：`Confluence 链接`、`Confluence pageId`、`直接粘贴 PRD 正文`。
+- 支持五类输入：`Confluence 链接`、`Confluence pageId`、`Google Docs / Drive 链接`、`本地文件（.md / .pdf / .docx / .doc）`、`直接粘贴 PRD 正文`。
 - 如果输入来自 Confluence，skill 复用 `confluence-search` 的抓取能力与本地凭据。
-- 本地需存在 `~/.confluence-credentials`，并包含：
-  - `CONFLUENCE_BASE_URL`
-  - `CONFLUENCE_AUTH_TYPE`
-  - `CONFLUENCE_TOKEN`
+- 如果输入来自 Google Docs / Drive，skill 复用 `google-workspace` 的授权与读取能力。
+- 本地需具备对应凭据或读取能力：
+  - Confluence：`~/.confluence-credentials`
+    - `CONFLUENCE_BASE_URL`
+    - `CONFLUENCE_AUTH_TYPE`
+    - `CONFLUENCE_TOKEN`
+  - Google Workspace：参考 `google-workspace` skill 的前置条件，例如 `~/.config/google/client_secret.json` 与 `~/.config/google/oauth_token.json`
 - 凭据缺失时，应先提示补充，不绕过权限直接抓取。
 
 ## 使用方式
@@ -44,6 +47,14 @@
 
 ```text
 帮我做一份 PRD 简报，pageId=123456789，重点看页面范围和工作量。
+```
+
+```text
+请用 prd-design-brief 帮我看这个 Google Doc，从设计师视角整理成开工重点版：https://docs.google.com/document/d/...
+```
+
+```text
+请读取本地文件 `/Users/me/Desktop/PRD.docx`，帮我输出一份标准全量版 PRD 简报。
 ```
 
 ```text
@@ -63,7 +74,7 @@
 
 ## 工作流程
 
-1. 获取 PRD 原文，来源可以是链接、`pageId` 或直接正文。
+1. 获取 PRD 原文，来源可以是链接、`pageId`、Google 文档、本地文件或直接正文。
 2. 如果用户尚未指定输出范围，先确认要使用哪一种输出包。
 3. 通读 PRD，建立核心场景、角色、主流程和系统模块认知。
 4. 将零散需求归并为设计单元，而不是逐条复述原文。
@@ -92,6 +103,8 @@
 ## 注意事项
 
 - 这个 skill 的目标是“帮助设计师快速开工”，不是生成 PRD 摘抄版。
+- 读取 Google Docs / Drive 时，只做读取与导出，不写回原文档；一级授权复用 `google-workspace`。
+- 读取本地 `.pdf` / `.docx` / `.doc` 时，优先自动提取文本；如果抽取质量明显不足，再请用户补充更适合解析的版本。
 - TL;DR 必须优先使用白话，避免未解释的业务缩写。
 - 业务流程只保留主干链路，异常和分支应单独标出，不要把图画得过细。
 - 任何基于常识补足的判断，都应明确标注为“推断”或“行业经验”。
